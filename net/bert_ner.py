@@ -4,6 +4,8 @@ import numpy as np
 from sklearn.metrics import f1_score, classification_report
 from pytorch_pretrained_bert.modeling import BertPreTrainedModel, BertModel
 from config import args
+import torch.nn.functional as F
+import torch
 
 class Bert_CRF(BertPreTrainedModel):
     def __init__(self,
@@ -18,7 +20,7 @@ class Bert_CRF(BertPreTrainedModel):
         self.classifier = nn.Linear(config.hidden_size, num_tag)
         self.apply(self.init_bert_weights)
         self.crf = CRF(num_tag)
-
+        self.num_tag=num_tag
 
     def forward(self,
                 input_ids,
@@ -29,15 +31,18 @@ class Bert_CRF(BertPreTrainedModel):
         bert_encode, _ = self.bert(input_ids, token_type_ids, attention_mask,
                                      output_all_encoded_layers=output_all_encoded_layers)
         output = self.classifier(bert_encode)
-        self.outputs=output
+
         return output
 
     def loss_fn(self, bert_encode, output_mask, tags):
         if args.do_CRF:
             loss = self.crf.negative_log_loss(bert_encode, output_mask, tags)
         else:
-            criterion = nn.CrossEntropyLoss()
-            loss = criterion(bert_encode, tags)
+            loss_fct = nn.CrossEntropyLoss(ignore_index=0)
+            active_loss = output_mask.view(-1) == 1
+            active_logits = bert_encode.view(-1, self.num_tag)[active_loss]
+            active_labels = tags.view(-1)[active_loss]
+            loss = loss_fct(active_logits, active_labels)
         return loss
 
     def predict(self, bert_encode, output_mask):
@@ -46,7 +51,16 @@ class Bert_CRF(BertPreTrainedModel):
             predicts = predicts.view(1, -1).squeeze()
             predicts = predicts[predicts != -1]
         else:
-            predicts = self.outputs.data.sort(1, descending=True)[1]
+            logits = F.softmax(bert_encode, dim=2)
+            logits_label = torch.argmax(logits, dim=2)
+            logits_label = logits_label.detach().cpu().numpy()
+            # logits_confidence = [values[label].item() for values, label in zip(logits[0], logits_label[0])]
+            # logits_label = [logits_label[0][index] for index, i in enumerate(output_mask[0]) if i.item() == 1]
+            # logits_label.pop(0)
+            # logits_label.pop()
+            # labels = [args.labels[label] for label in logits_label]
+            # words = word_tokenize(text)
+            predicts=logits_label
         return predicts
 
     def acc_f1(self, y_pred, y_true):

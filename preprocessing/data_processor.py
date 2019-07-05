@@ -44,12 +44,10 @@ def _read_tsv(input_file, quotechar=None):
     with open(input_file, "r",encoding='utf-8') as f:
         reader = csv.reader(f, delimiter="\t", quotechar=quotechar)
         headers = next(reader)
-        Example = namedtuple('Example', headers)
-
         examples = []
         for line in reader:
-            example = Example(*line)
-            examples.append(example)
+            line=line[0].split('\x02'),line[1].split('\x02')
+            examples.append(line)
         return examples
 
 def sent2char(line):
@@ -104,7 +102,7 @@ def bulid_vocab(vocab_size, min_freq=1, stop_word_list=None):
 def produce_data(custom_vocab=False, stop_word_list=None, vocab_size=None):
     """实际情况下，train和valid通常是需要自己划分的，这里将train和valid数据集划分好写入文件"""
 
-    if(os.path.join(args.ROOT_DIR, args.RAW_SOURCE_DATA).split('.')[-1]=='txt'):
+    if(args.DATA_TYPE=='txt'):
         targets, sentences = [],[]
         with open(os.path.join(args.ROOT_DIR, args.RAW_SOURCE_DATA), 'r') as fr_1, \
                 open(os.path.join(args.ROOT_DIR, args.RAW_TARGET_DATA), 'r') as fr_2:
@@ -117,47 +115,27 @@ def produce_data(custom_vocab=False, stop_word_list=None, vocab_size=None):
                 if custom_vocab:
                     bulid_vocab(vocab_size, stop_word_list)
         train, valid = train_val_split(sentences, targets)
-        with open(args.TRAIN, 'w') as fw:
-            for sent, label in train:
-                sent = ' '.join([str(w) for w in sent])
-                label = ' '.join([str(l) for l in label])
-                df = {"source": sent, "target": label}
-                encode_json = json.dumps(df)
-                print(encode_json, file=fw)
-            logger.info('Train set write done')
 
-        with open(args.VALID, 'w') as fw:
-            for sent, label in valid:
-                sent = ' '.join([str(w) for w in sent])
-                label = ' '.join([str(l) for l in label])
-                df = {"source": sent, "target": label}
-                encode_json = json.dumps(df)
-                print(encode_json, file=fw)
-            logger.info('Dev set write done')
-    elif(args.TRAIN_DATA.split('.')[-1]=='tsv'):
+    else:
         train=_read_tsv(args.TRAIN_DATA)
         valid=_read_tsv(args.VALID_DATA)
-        with open(args.TRAIN, 'w') as fw:
-            for data in train:
-                sent, label = data.text_a, data.label
-                sent = ' '.join([str(w) for w in sent])
-                label = ' '.join([str(l) for l in label])
-                df = {"source": sent, "target": label}
-                encode_json = json.dumps(df)
-                print(encode_json, file=fw)
-            logger.info('Train set write done')
+    with open(args.TRAIN, 'w') as fw:
+        for sent, label in train:
+            sent = ' '.join([str(w) for w in sent])
+            label = ' '.join([str(l) for l in label])
+            df = {"source": sent, "target": label}
+            encode_json = json.dumps(df)
+            print(encode_json, file=fw)
+        logger.info('Train set write done')
 
-        with open(args.VALID, 'w') as fw:
-            for data in valid:
-                sent, label = data.text_a, data.label
-                sent = ' '.join([str(w) for w in sent])
-                label = ' '.join([str(l) for l in label])
-                df = {"source": sent, "target": label}
-                encode_json = json.dumps(df)
-                print(encode_json, file=fw)
-            logger.info('Dev set write done')
-
-
+    with open(args.VALID, 'w') as fw:
+        for sent, label in valid:
+            sent = ' '.join([str(w) for w in sent])
+            label = ' '.join([str(l) for l in label])
+            df = {"source": sent, "target": label}
+            encode_json = json.dumps(df)
+            print(encode_json, file=fw)
+        logger.info('Dev set write done')
 
 
 class InputExample(object):
