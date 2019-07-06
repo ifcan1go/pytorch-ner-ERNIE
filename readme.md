@@ -1,15 +1,19 @@
 # ERNIE Pytorch ner 
 p100-2 tmux attach -t zyy
-# Result 
-dataset：msra_ner
 # train
 python3.5 run_bert_ner.py
+ernie_weight
+dataset:msra_ner&人民日报
+https://cloud.tsinghua.edu.cn/d/b2017a770eac498999cf/
 # Inference
+confirm config.args.labels
 python3.5 run_inference.py
 input:data/inference.txt 
 output:output/inference/inference.json
-default weight load: output/checkpoint/pytorch_model.bin
+default weight load:output/checkpoint/pytorch_model.bin
 
+# Result 
+dataset：msra_ner
 | with_crf_all_train | precision | recall | f1-score | support |
 | ------------------ | --------- | ------ | -------- | ------- |
 |                    |           |        |          |         |
