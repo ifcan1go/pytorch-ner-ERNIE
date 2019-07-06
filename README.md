@@ -18,16 +18,16 @@ confirm config.args.labels
 
 python3.5 run_inference.py
 
-input:data/inference.txt 
+input: data/inference.txt 
 
-output:output/inference/inference.json
+output: output/inference/inference.json
 
-default weight load:output/checkpoint/pytorch_model.bin
+default weight load: output/checkpoint/pytorch_model.bin
 
 
 # Result 
 
-dataset：msra_ner
+dataset： msra_ner
 
 | with_crf_all_train | precision | recall | f1-score | support |
 | ------------------ | --------- | ------ | -------- | ------- |
