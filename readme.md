@@ -1,6 +1,14 @@
 # ERNIE Pytorch ner 
 p100-2 tmux attach -t zyy
-
+# Result 
+dataset：msra_ner
+# train
+python3.5 run_bert_ner.py
+# Inference
+python3.5 run_inference.py
+input:data/inference.txt 
+output:output/inference/inference.json
+default weight load: output/checkpoint/pytorch_model.bin
 
 | with_crf_all_train | precision | recall | f1-score | support |
 | ------------------ | --------- | ------ | -------- | ------- |
