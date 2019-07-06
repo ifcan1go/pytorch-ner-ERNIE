@@ -1,3 +1,7 @@
+# ERNIE Pytorch ner 
+p100-2 tmux attach -t zyy
+
+
 | with_crf_all_train | precision | recall | f1-score | support |
 | ------------------ | --------- | ------ | -------- | ------- |
 |                    |           |        |          |         |
