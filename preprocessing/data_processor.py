@@ -103,41 +103,55 @@ def bulid_vocab(vocab_size, min_freq=1, stop_word_list=None):
 
 def produce_data(custom_vocab=False, stop_word_list=None, vocab_size=None):
     """实际情况下，train和valid通常是需要自己划分的，这里将train和valid数据集划分好写入文件"""
+    if not args.do_inference:
+        if (args.DATA_TYPE == 'txt'):
+            targets, sentences = [], []
+            with open(os.path.join(args.ROOT_DIR, args.RAW_SOURCE_DATA), 'r') as fr_1, \
+                    open(os.path.join(args.ROOT_DIR, args.RAW_TARGET_DATA), 'r') as fr_2:
+                for sent, target in tqdm(zip(fr_1, fr_2), desc='text_to_id'):
+                    chars = sent2char(sent)
+                    label = sent2char(target)
+                    targets.append(label)
+                    sentences.append(chars)
+                    if custom_vocab:
+                        bulid_vocab(vocab_size, stop_word_list)
+            train, valid = train_val_split(sentences, targets)
 
-    if (args.DATA_TYPE == 'txt'):
-        targets, sentences = [], []
-        with open(os.path.join(args.ROOT_DIR, args.RAW_SOURCE_DATA), 'r') as fr_1, \
-                open(os.path.join(args.ROOT_DIR, args.RAW_TARGET_DATA), 'r') as fr_2:
-            for sent, target in tqdm(zip(fr_1, fr_2), desc='text_to_id'):
+        else:
+            train = _read_tsv(args.TRAIN_DATA)
+            valid = _read_tsv(args.VALID_DATA)
+        with open(args.TRAIN, 'w') as fw:
+            for sent, label in train:
+                sent = ' '.join([str(w) for w in sent])
+                label = ' '.join([str(l) for l in label])
+                df = {"source": sent, "target": label}
+                encode_json = json.dumps(df)
+                print(encode_json, file=fw)
+            logger.info('Train set write done')
+
+        with open(args.VALID, 'w') as fw:
+            for sent, label in valid:
+                sent = ' '.join([str(w) for w in sent])
+                label = ' '.join([str(l) for l in label])
+                df = {"source": sent, "target": label}
+                encode_json = json.dumps(df)
+                print(encode_json, file=fw)
+            logger.info('Dev set write done')
+    else:
+        sentences = []
+        with open(os.path.join(args.ROOT_DIR, args.INFERENCE_DATA), 'r') as fr_1:
+            for sent in tqdm(fr_1, desc='text_to_id'):
                 chars = sent2char(sent)
-                label = sent2char(target)
-
-                targets.append(label)
                 sentences.append(chars)
                 if custom_vocab:
                     bulid_vocab(vocab_size, stop_word_list)
-        train, valid = train_val_split(sentences, targets)
-
-    else:
-        train = _read_tsv(args.TRAIN_DATA)
-        valid = _read_tsv(args.VALID_DATA)
-    with open(args.TRAIN, 'w') as fw:
-        for sent, label in train:
-            sent = ' '.join([str(w) for w in sent])
-            label = ' '.join([str(l) for l in label])
-            df = {"source": sent, "target": label}
-            encode_json = json.dumps(df)
-            print(encode_json, file=fw)
-        logger.info('Train set write done')
-
-    with open(args.VALID, 'w') as fw:
-        for sent, label in valid:
-            sent = ' '.join([str(w) for w in sent])
-            label = ' '.join([str(l) for l in label])
-            df = {"source": sent, "target": label}
-            encode_json = json.dumps(df)
-            print(encode_json, file=fw)
-        logger.info('Dev set write done')
+        with open(args.INFERENCE, 'w') as fw:
+            for sent in sentences:
+                sent = ' '.join([str(w) for w in sent])
+                df = {"source": sent}
+                encode_json = json.dumps(df)
+                print(encode_json, file=fw)
+            logger.info('Inference set write done')
 
 
 class InputExample(object):
@@ -204,8 +218,18 @@ class MyPro(DataProcessor):
             examples.append(example)
         return examples
 
+    def _create_inference_example(self, lines, set_type):
+        examples = []
+        for i, line in enumerate(lines):
+            guid = "%s-%d" % (set_type, i)
+            line = json.loads(line)
+            text_a = line["source"]
+            example = InputExample(guid=guid,text_a=text_a)
+            examples.append(example)
+        return examples
+
+
     def get_train_examples(self, data_dir):
-        print (args.TRAIN)
         lines = self._read_json(args.TRAIN)
         examples = self._create_example(lines, "train")
         return examples
@@ -215,10 +239,12 @@ class MyPro(DataProcessor):
         examples = self._create_example(lines, "dev")
         return examples
 
-    def get_inference_examples(self,data_dir):
+    def get_inference_examples(self, data_dir):
+        print (args.INFERENCE)
         lines = self._read_json(args.INFERENCE)
-        examples = self._create_example(lines, "inference")
+        examples = self._create_inference_example(lines, "inference")
         return examples
+
     def get_labels(self):
         return args.labels
 
@@ -306,4 +332,57 @@ def convert_examples_to_features(examples, label_list, max_seq_length, tokenizer
         features.append(feature)
 
     return features
+def convert_inference_to_features(examples, label_list, max_seq_length, tokenizer):
+    # 标签转换为数字
+    label_map = {label: i for i, label in enumerate(label_list)}
 
+    # load sub_vocab
+    sub_vocab = {}
+    with open(args.VOCAB_FILE, 'r') as fr:
+        for line in fr:
+            _line = line.strip('\n')
+            if "##" in _line and sub_vocab.get(_line) is None:
+                sub_vocab[_line] = 1
+
+    features = []
+    for ex_index, example in enumerate(examples):
+        tokens_a = tokenizer.tokenize(example.text_a)
+
+
+        if len(tokens_a) == 0 :
+            continue
+
+        if len(tokens_a) > max_seq_length - 2:
+            tokens_a = tokens_a[:(max_seq_length - 2)]
+
+        # ----------------处理source--------------
+        ## 句子首尾加入标示符
+        tokens = ["[CLS]"] + tokens_a + ["[SEP]"]
+        segment_ids = [0] * len(tokens)
+
+        input_ids = tokenizer.convert_tokens_to_ids(tokens)
+
+        input_mask = [1] * len(input_ids)
+
+        padding = [0] * (max_seq_length - len(input_ids))
+
+        input_ids += padding
+        input_mask += padding
+        segment_ids += padding
+
+        assert len(input_ids) == max_seq_length
+        assert len(input_mask) == max_seq_length
+        assert len(segment_ids) == max_seq_length
+
+        output_mask = [0 if sub_vocab.get(t) is not None else 1 for t in tokens_a]
+        output_mask = [0] + output_mask + [0]
+        output_mask += padding
+
+        feature = InputFeature(input_ids=input_ids,
+                               input_mask=input_mask,
+                               segment_ids=segment_ids,
+                               label_id=None,
+                               output_mask=output_mask)
+        features.append(feature)
+
+    return features

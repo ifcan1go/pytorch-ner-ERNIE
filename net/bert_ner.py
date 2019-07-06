@@ -51,8 +51,16 @@ class Bert_CRF(BertPreTrainedModel):
     def predict(self, bert_encode, output_mask):
         if args.do_CRF:
             predicts = self.crf.get_batch_best_path(bert_encode, output_mask)
-            predicts = predicts.view(1, -1).squeeze()
-            predicts = predicts[predicts != -1]
+            if not args.do_inference:
+                predicts = predicts.view(1, -1).squeeze()
+                predicts = predicts[predicts != -1]
+            else:
+                predicts_ =[]
+                for ix, features, in enumerate(predicts):
+                    #features = features[output_mask[ix] == 1]
+                    predict = features[features != -1]
+                    predicts_.append(predict)
+                predicts = predicts_
         else:
             predicts_ =[]
             for ix, features, in enumerate(bert_encode):
@@ -60,7 +68,10 @@ class Bert_CRF(BertPreTrainedModel):
                 predict= F.softmax(features,dim=1)
                 predict = torch.argmax(predict,dim=1)
                 predicts_.append(predict)
-            predicts=torch.cat(predicts_,0)
+            if not args.do_inference:
+                predicts=torch.cat(predicts_,0)
+            else:
+                predicts=predicts_
         return predicts
 
     def acc_f1(self, y_pred, y_true):
