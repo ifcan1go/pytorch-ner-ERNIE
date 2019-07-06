@@ -10,7 +10,8 @@ ernie_weight
 
 dataset:msra_ner&人民日报
 
-https://cloud.tsinghua.edu.cn/d/b2017a770eac498999cf/
+data download: https://cloud.tsinghua.edu.cn/d/b2017a770eac498999cf/
+
 # Inference
 
 confirm config.args.labels
