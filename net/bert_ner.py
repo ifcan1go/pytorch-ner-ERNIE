@@ -44,7 +44,7 @@ class Bert_CRF(BertPreTrainedModel):
                 num_valid = torch.sum(output_mask[ix].detach())
                 features = features[output_mask[ix] == 1]
                 tag = tag[:num_valid]
-                loss_fct = nn.CrossEntropyLoss(ignore_index=0)
+                loss_fct = nn.CrossEntropyLoss()
                 loss = loss + loss_fct(features.view(-1, self.num_tag).cpu(), tag.view(-1).cpu())
         return loss
 

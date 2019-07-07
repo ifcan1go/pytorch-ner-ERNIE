@@ -4,7 +4,7 @@ from train.train import fit
 import config.args as args
 from util.porgress_util import ProgressBar
 from preprocessing.data_processor import produce_data
-
+from util.model_util import save_model, load_model
 
 def start():
     produce_data()
@@ -14,9 +14,10 @@ def start():
     epoch_size = num_train_steps * args.train_batch_size * args.gradient_accumulation_steps / args.num_train_epochs
 
     pbar = ProgressBar(epoch_size=epoch_size, batch_size=args.train_batch_size)
-
-    model = Bert_CRF.from_pretrained(args.bert_model,
-              num_tag = len(args.labels))
+    if args.load_weight:
+        model = load_model(args.output_dir)
+    else:
+        model = Bert_CRF.from_pretrained(args.bert_model,num_tag = len(args.labels))
 
     for name, param in model.named_parameters():
         if param.requires_grad:

@@ -30,6 +30,7 @@ do_lower_case = True
 do_CRF = False
 do_inference = False
 do_not_train_ernie = True
+load_weight = False
 train_batch_size = 16
 eval_batch_size = 16
 learning_rate = 2e-5
